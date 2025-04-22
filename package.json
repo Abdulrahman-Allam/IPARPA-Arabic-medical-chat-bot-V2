@@ -1,0 +1,24 @@
+{
+  "name": "IPARPA",
+  "version": "1.0.0",
+  "description": "A project that includes a backend Express application connected to MongoDB and a frontend React application created with Vite.",
+  "scripts": {
+    "start": "node backend/src/app.js",
+    "dev": "vite --config frontend/vite.config.js",
+    "build": "vite build --config frontend/vite.config.js",
+    "backend": "cd backend && npm install",
+    "frontend": "cd frontend && npm install"
+  },
+  "dependencies": {
+    "@sendgrid/mail": "^8.1.5",
+    "express": "^4.17.1",
+    "mongoose": "^5.10.9"
+  },
+  "devDependencies": {
+    "react": "^17.0.2",
+    "react-dom": "^17.0.2",
+    "vite": "^2.0.0"
+  },
+  "author": "",
+  "license": "ISC"
+}

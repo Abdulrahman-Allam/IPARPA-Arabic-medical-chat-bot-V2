@@ -1,0 +1,1 @@
+// This file exports utility functions that can be used throughout the application, such as error handling or data formatting functions.
