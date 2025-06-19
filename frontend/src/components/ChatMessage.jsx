@@ -31,6 +31,12 @@ const UserMessagePaper = styled(Paper)(({ theme }) => ({
     color: '#ffffff',
     textShadow: '0px 1px 2px rgba(0,0,0,0.1)',
     letterSpacing: '0.01em',
+    lineHeight: 1.6,
+    '& br': {
+      display: 'block',
+      marginBottom: theme.spacing(1),
+      content: '""',
+    }
   }
 }));
 
@@ -53,6 +59,20 @@ const BotMessagePaper = styled(Paper)(({ theme }) => ({
     color: theme.palette.mode === 'dark'
       ? 'rgba(255, 255, 255, 0.9)'
       : 'rgba(0, 0, 0, 0.87)',
+    lineHeight: 1.6,
+    '& br': {
+      display: 'block',
+      marginBottom: theme.spacing(1),
+      content: '""',
+    },
+    '& span': {
+      display: 'inline-block',
+      margin: '4px 0',
+      '&:contains("حالتك حرجة"), &:contains("حالتك غير حرجة")': {
+        marginTop: theme.spacing(2),
+        marginBottom: theme.spacing(1),
+      }
+    }
   }
 }));
 
@@ -65,6 +85,32 @@ const ChatMessage = ({ message, onBooking }) => {
     `${message.id || message._id}-${message.content?.substring(0, 20) || ''}-${Date.now()}`, 
     [message.id, message._id, message.content]
   );
+  // Format message content with proper line breaks and colored severity status
+  const formatMessageContent = useMemo(() => {
+    if (!message.content) return '';
+    
+    let formattedContent = message.content
+      // Replace different types of line breaks with HTML br tags
+      .replace(/\r\n/g, '<br>')
+      .replace(/\n/g, '<br>')
+      .replace(/\r/g, '<br>')
+      // Replace literal <br> text with actual line breaks
+      .replace(/&lt;br&gt;/g, '<br>')
+      .replace(/&lt;br \/&gt;/g, '<br>')
+      .replace(/&lt;br\/&gt;/g, '<br>')
+      // Replace multiple consecutive <br> tags with double spacing
+      .replace(/(<br>\s*){3,}/g, '<br><br>')      // Color the severity status with enhanced styling
+      .replace(
+        /(حالتك حرجة)/g,
+        '<br><br><span style="color: #d32f2f; font-weight: bold; background: rgba(211, 47, 47, 0.15); padding: 6px 12px; border-radius: 8px; border: 1px solid rgba(211, 47, 47, 0.3); margin: 8px 0; display: inline-block; box-shadow: 0 2px 4px rgba(211, 47, 47, 0.2);">⚠️ $1</span>'
+      )
+      .replace(
+        /(حالتك غير حرجة)/g,
+        '<br><br><span style="color: #388e3c; font-weight: bold; background: rgba(56, 142, 60, 0.15); padding: 6px 12px; border-radius: 8px; border: 1px solid rgba(56, 142, 60, 0.3); margin: 8px 0; display: inline-block; box-shadow: 0 2px 4px rgba(56, 142, 60, 0.2);">✅ $1</span>'
+      );
+    
+    return formattedContent;
+  }, [message.content]);
 
   // Extract specialty from message content using keywords
   const detectedSpecialty = useMemo(() => {
@@ -118,15 +164,20 @@ const ChatMessage = ({ message, onBooking }) => {
       }}>
         {isUser ? <PersonIcon /> : <HealthAndSafetyIcon />}
       </Avatar>
-      
-      {isUser ? (
+        {isUser ? (
         <UserMessagePaper elevation={3}>  {/* Increased elevation for more shadow */}
-          <Typography variant="body1">{message.content}</Typography>
+          <Typography 
+            variant="body1" 
+            dangerouslySetInnerHTML={{ __html: formatMessageContent }}
+          />
         </UserMessagePaper>
       ) : (
         <Box sx={{ maxWidth: '70%' }}>
           <BotMessagePaper>
-            <Typography variant="body1">{message.content}</Typography>
+            <Typography 
+              variant="body1" 
+              dangerouslySetInnerHTML={{ __html: formatMessageContent }}
+            />
           </BotMessagePaper>
           
           {/* Show booking button for assistant messages when user is authenticated and the message has content */}
