@@ -8,6 +8,8 @@ import CloseIcon from '@mui/icons-material/Close';
 import HealthAndSafetyIcon from '@mui/icons-material/HealthAndSafety';
 import ScheduleIcon from '@mui/icons-material/Schedule';
 import MicNoneIcon from '@mui/icons-material/MicNone';
+import MicIcon from '@mui/icons-material/Mic';
+import StopIcon from '@mui/icons-material/Stop';
 import ChatIcon from '@mui/icons-material/Chat';
 import { v4 as uuidv4 } from 'uuid';
 import { useNavigate } from 'react-router-dom';
@@ -304,10 +306,16 @@ const Chat = () => {
   const [loadingSchedules, setLoadingSchedules] = useState(false);
   const [selectedSchedule, setSelectedSchedule] = useState('');
   const [bookingError, setBookingError] = useState('');
-  
-  // New state for showing welcome animations
+    // New state for showing welcome animations
   const [showWelcome, setShowWelcome] = useState(true);
   const [initFinished, setInitFinished] = useState(false);
+
+  // Speech recognition states
+  const [isListening, setIsListening] = useState(false);
+  const [speechRecognition, setSpeechRecognition] = useState(null);
+  const [speechSupported, setSpeechSupported] = useState(false);
+  const [transcript, setTranscript] = useState('');
+  const speechTimeoutRef = useRef(null);
 
   useEffect(() => {
     const initializeChat = async () => {
@@ -699,14 +707,164 @@ const Chat = () => {
 
   const handleCloseSnackbar = () => {
     setSnackbarOpen(false);
-  };
-  
-  // Speech recognition placeholder
+  };  // Speech recognition functions
   const startSpeechRecognition = () => {
-    // This would be implemented with Web Speech API
-    setSnackbarMessage('خاصية التحدث ستتوفر قريباً!');
-    setSnackbarOpen(true);
+    if (!speechSupported) {
+      setSnackbarMessage('متصفحك لا يدعم خاصية التعرف على الصوت');
+      setSnackbarOpen(true);
+      return;
+    }
+
+    if (!speechRecognition) {
+      setSnackbarMessage('خدمة التعرف على الصوت غير متاحة');
+      setSnackbarOpen(true);
+      return;
+    }
+
+    // Start listening
+    try {
+      setTranscript('');
+      speechRecognition.start();
+      
+    } catch (error) {
+      console.error('Error starting speech recognition:', error);
+      setSnackbarMessage('فشل في بدء التعرف على الصوت');
+      setSnackbarOpen(true);
+    }
   };
+
+  const stopSpeechRecognition = () => {
+    if (speechRecognition && isListening) {
+      speechRecognition.stop();
+    }
+    // Clear any existing timeout when manually stopping
+    if (speechTimeoutRef.current) {
+      clearTimeout(speechTimeoutRef.current);
+      speechTimeoutRef.current = null;
+    }
+  };
+
+  // Handle mouse/touch events for hold-to-record
+  const handleMouseDown = (e) => {
+    e.preventDefault();
+    startSpeechRecognition();
+  };
+
+  const handleMouseUp = (e) => {
+    e.preventDefault();
+    stopSpeechRecognition();
+  };
+
+  const handleMouseLeave = (e) => {
+    e.preventDefault();
+    if (isListening) {
+      stopSpeechRecognition();
+    }
+  };
+
+  // Handle touch events for mobile
+  const handleTouchStart = (e) => {
+    e.preventDefault();
+    startSpeechRecognition();
+  };
+
+  const handleTouchEnd = (e) => {
+    e.preventDefault();
+    stopSpeechRecognition();
+  };
+  // Initialize speech recognition
+  useEffect(() => {
+    if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
+      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+      const recognition = new SpeechRecognition();
+      
+      recognition.continuous = true; // Allow continuous recording
+      recognition.interimResults = true;
+      recognition.lang = 'ar-EG'; // Arabic (Egypt)
+      
+      recognition.onstart = () => {
+        console.log('Speech recognition started');
+        setIsListening(true);
+      };
+      
+      recognition.onresult = (event) => {
+        let finalTranscript = '';
+        let interimTranscript = '';
+        
+        for (let i = event.resultIndex; i < event.results.length; i++) {
+          const transcript = event.results[i][0].transcript;
+          if (event.results[i].isFinal) {
+            finalTranscript += transcript;
+          } else {
+            interimTranscript += transcript;
+          }
+        }
+        
+        // Update the input field with final transcript, append to existing content
+        if (finalTranscript) {
+          console.log('Final transcript:', finalTranscript);
+          setInput(prev => prev + finalTranscript);
+          setTranscript('');
+        } else {
+          console.log('Interim transcript:', interimTranscript);
+          setTranscript(interimTranscript);
+        }
+      };
+      
+      recognition.onend = () => {
+        console.log('Speech recognition ended');
+        setIsListening(false);
+        setTranscript('');
+        if (speechTimeoutRef.current) {
+          clearTimeout(speechTimeoutRef.current);
+          speechTimeoutRef.current = null;
+        }
+      };
+      
+      recognition.onerror = (event) => {
+        console.error('Speech recognition error:', event.error);
+        setIsListening(false);
+        setTranscript('');
+        
+        let errorMessage = 'حدث خطأ في التعرف على الصوت';
+        switch (event.error) {
+          case 'no-speech':
+            errorMessage = 'لم يتم التعرف على أي صوت، يرجى المحاولة مرة أخرى';
+            break;
+          case 'audio-capture':
+            errorMessage = 'لم يتم العثور على ميكروفون، تأكد من توصيله';
+            break;
+          case 'not-allowed':
+            errorMessage = 'يجب السماح للموقع بالوصول للميكروفون';
+            break;
+          case 'network':
+            errorMessage = 'خطأ في الشبكة، تأكد من الاتصال بالإنترنت';
+            break;
+        }
+        
+        setSnackbarMessage(errorMessage);
+        setSnackbarOpen(true);
+      };
+      
+      setSpeechRecognition(recognition);
+      setSpeechSupported(true);
+    } else {
+      console.log('Speech recognition not supported');
+      setSpeechSupported(false);
+    }
+  }, []);
+
+  // Cleanup speech recognition on unmount
+  useEffect(() => {
+    return () => {
+      if (speechRecognition && isListening) {
+        speechRecognition.stop();
+      }
+      if (speechTimeoutRef.current) {
+        clearTimeout(speechTimeoutRef.current);
+      }
+    };
+  }, [speechRecognition, isListening]);
 
   return (
     <Layout title="المساعد الطبي">
@@ -905,35 +1063,103 @@ const Chat = () => {
             <div ref={messagesEndRef} />
           </MessagesContainer>
         </Zoom>
-        
-        <Zoom in={initFinished} timeout={500} style={{ transitionDelay: '300ms' }}>
+          <Zoom in={initFinished} timeout={500} style={{ transitionDelay: '300ms' }}>
           <InputContainer component="form" onSubmit={handleSendMessage}>
-            <Tooltip title="المساعدة الصوتية">
+            {/* Speech Recognition Status */}
+            {(isListening || transcript) && (
+              <Box sx={{ 
+                position: 'absolute', 
+                top: -60, 
+                left: 0, 
+                right: 0, 
+                backgroundColor: theme.palette.mode === 'dark' ? 'rgba(156, 39, 176, 0.1)' : 'rgba(25, 118, 210, 0.1)',
+                border: theme.palette.mode === 'dark' ? '1px solid rgba(156, 39, 176, 0.3)' : '1px solid rgba(25, 118, 210, 0.3)',
+                borderRadius: '8px',
+                padding: 1,
+                display: 'flex',
+                alignItems: 'center',
+                gap: 1,
+                animation: isListening ? `${pulse} 1.5s ease-in-out infinite` : 'none'
+              }}>
+                <MicIcon sx={{ color: '#f44336', fontSize: 20 }} />
+                <Typography variant="body2" sx={{ flex: 1, color: theme.palette.text.primary }}>
+                  {isListening 
+                    ? (transcript || 'استمع... يرجى التحدث الآن') 
+                    : transcript
+                  }
+                </Typography>
+                {isListening && (
+                  <IconButton size="small" onClick={stopSpeechRecognition} sx={{ color: '#f44336' }}>
+                    <StopIcon fontSize="small" />
+                  </IconButton>
+                )}
+              </Box>
+            )}
+              <Tooltip title={
+              !speechSupported 
+                ? "المتصفح لا يدعم التعرف على الصوت" 
+                : isListening 
+                  ? "اترك الزر لإيقاف التسجيل" 
+                  : "اضغط واستمر بالضغط للتسجيل الصوتي"
+            }>
               <IconButton 
                 color="primary"
-                onClick={startSpeechRecognition}
+                disabled={!speechSupported || loading}
+                onMouseDown={handleMouseDown}
+                onMouseUp={handleMouseUp}
+                onMouseLeave={handleMouseLeave}
+                onTouchStart={handleTouchStart}
+                onTouchEnd={handleTouchEnd}
                 sx={{
-                  backgroundColor: theme.palette.mode === 'dark' ? 'rgba(156, 39, 176, 0.1)' : 'rgba(25, 118, 210, 0.05)',
+                  backgroundColor: isListening 
+                    ? 'rgba(244, 67, 54, 0.2)' 
+                    : theme.palette.mode === 'dark' 
+                      ? 'rgba(156, 39, 176, 0.1)' 
+                      : 'rgba(25, 118, 210, 0.05)',
+                  color: isListening ? '#f44336' : 'primary.main',
+                  border: isListening ? '2px solid #f44336' : '2px solid transparent',
+                  transition: 'all 0.2s ease',
                   '&:hover': {
-                    backgroundColor: theme.palette.mode === 'dark' ? 'rgba(156, 39, 176, 0.2)' : 'rgba(25, 118, 210, 0.1)',
-                  }
+                    backgroundColor: isListening
+                      ? 'rgba(244, 67, 54, 0.3)'
+                      : theme.palette.mode === 'dark' 
+                        ? 'rgba(156, 39, 176, 0.2)' 
+                        : 'rgba(25, 118, 210, 0.1)',
+                  },
+                  '&:disabled': {
+                    opacity: 0.5,
+                    cursor: 'not-allowed'
+                  },
+                  '&:active': {
+                    transform: 'scale(0.95)',
+                  },
+                  animation: isListening ? `${pulse} 1s ease-in-out infinite` : 'none',
+                  userSelect: 'none', // Prevent text selection
+                  WebkitUserSelect: 'none',
+                  msUserSelect: 'none',
                 }}
               >
-                <MicNoneIcon />
+                {isListening ? <MicIcon /> : <MicNoneIcon />}
               </IconButton>
             </Tooltip>
-            
-            <TextField
+              <TextField
               fullWidth
               variant="outlined"
-              placeholder="اكتب استفسارك هنا..."
+              placeholder={isListening ? "أتحدث... أو اكتب هنا" : "اكتب استفسارك هنا أو استخدم الميكروفون..."}
               value={input}
               onChange={(e) => setInput(e.target.value)}
               disabled={loading}
-              InputProps={{
-                sx: { 
+              onKeyPress={(e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                  e.preventDefault();
+                  handleSendMessage(e);
+                }
+              }}
+              InputProps={{                sx: { 
                   borderRadius: '12px',
                   backgroundColor: theme.palette.mode === 'dark' ? 'rgba(255,255,255,0.05)' : 'rgba(255,255,255,0.7)',
+                  border: isListening ? `2px solid ${theme.palette.mode === 'dark' ? '#f44336' : '#f44336'}` : 'none',
+                  animation: isListening ? `${pulse} 2s ease-in-out infinite` : 'none'
                 }
               }}
             />
