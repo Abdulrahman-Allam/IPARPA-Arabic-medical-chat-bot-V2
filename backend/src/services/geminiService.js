@@ -1,7 +1,10 @@
 const { GoogleGenerativeAI } = require('@google/generative-ai');
+require('dotenv').config();
+
+
 
 // Initialize the Google Generative AI
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "AIzaSyCrfSGQ4rzgkb-698AI69k8NFb4-gTguiA");
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
 const generateResponse = async (messages) => {
     try {
