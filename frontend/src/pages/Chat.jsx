@@ -842,22 +842,36 @@ const Chat = () => {
                 )}
               </WelcomeMessage>
             ) : (
-              <>
-                {messages.map((msg, index) => (
-                  <Fade 
-                    key={`${msg.id || msg._id}-${Date.now()}-${index}`} 
-                    in={true} 
-                    timeout={500}
-                    style={{ transitionDelay: `${index * 100}ms` }}
-                  >
-                    <Box>
-                      <ChatMessage 
-                        message={msg} 
-                        onBooking={handleBooking}
-                      />
-                    </Box>
-                  </Fade>
-                ))}
+              <>                {messages.map((msg, index) => {
+                  // Find the corresponding user message for bot responses
+                  let correspondingUserMessage = null;
+                  if (msg.role === 'assistant' && index > 0) {
+                    // Look for the previous user message
+                    for (let i = index - 1; i >= 0; i--) {
+                      if (messages[i].role === 'user') {
+                        correspondingUserMessage = messages[i];
+                        break;
+                      }
+                    }
+                  }
+                  
+                  return (
+                    <Fade 
+                      key={`${msg.id || msg._id}-${Date.now()}-${index}`} 
+                      in={true} 
+                      timeout={500}
+                      style={{ transitionDelay: `${index * 100}ms` }}
+                    >
+                      <Box>
+                        <ChatMessage 
+                          message={msg} 
+                          onBooking={handleBooking}
+                          userMessage={correspondingUserMessage}
+                        />
+                      </Box>
+                    </Fade>
+                  )
+                })}
                 
                 {/* Show typing indicator during active typing */}
                 {isTyping && (
