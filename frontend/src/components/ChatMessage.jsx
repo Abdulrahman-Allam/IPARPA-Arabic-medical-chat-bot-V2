@@ -101,7 +101,7 @@ const ChatMessage = ({ message, onBooking, userMessage = null }) => {
       // Replace multiple consecutive <br> tags with double spacing
       .replace(/(<br>\s*){3,}/g, '<br><br>')      // Color the severity status with enhanced styling
       .replace(
-        /(حالتك حرجة)/g,
+        /(حالتك تستدعي طبيب)/g,
         '<br><br><span style="color: #d32f2f; font-weight: bold; background: rgba(211, 47, 47, 0.15); padding: 6px 12px; border-radius: 8px; border: 1px solid rgba(211, 47, 47, 0.3); margin: 8px 0; display: inline-block; box-shadow: 0 2px 4px rgba(211, 47, 47, 0.2);">⚠️ $1</span>'
       )
       .replace(
