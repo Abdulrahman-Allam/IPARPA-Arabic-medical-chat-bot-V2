@@ -2,55 +2,50 @@ const axios = require('axios');
 
 const getUserLocation = async (query = 'Cairo') => {
     try {
-        const apiKey = "0b9602bbf8d645659bd4b84419c8f218";
-        const url = `https://api.opencagedata.com/geocode/v1/json?q=${encodeURIComponent(query)}&key=${apiKey}`;
+        const apiKey = process.env.Google_Map_API;
+        const url = `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(query)}&key=${apiKey}`;
         
         console.log(`Fetching location data for: ${query}`);
-        const response = await axios.get(url, { timeout: 5000 }); // 5 second timeout
+        const response = await axios.get(url, { timeout: 5000 });
         
         if (response.status === 200 && response.data.results.length > 0) {
-            const coords = response.data.results[0].geometry;
-            console.log(`Location found: ${coords.lat}, ${coords.lng}`);
-            return { lat: coords.lat, lng: coords.lng };
+            const location = response.data.results[0].geometry.location;
+            console.log(`Location found: ${location.lat}, ${location.lng}`);
+            return { lat: location.lat, lng: location.lng };
         } else {
             console.warn('Location not found, using fallback coordinates');
             return getCityCoordinates(query);
         }
     } catch (error) {
         console.error('Error getting user location:', error);
-        // Return fallback coordinates based on the query or default to Cairo
         return getCityCoordinates(query);
     }
 };
 
-const getNearbyFacilities = async (lat, lon, facilityType, radius = 60000) => {
+const getNearbyFacilities = async (lat, lon, facilityType, radius = 5000) => {
     try {
-        console.log(`Attempting to fetch ${facilityType} data for coordinates: ${lat}, ${lon}`);
+        console.log(`Fetching ${facilityType} data for coordinates: ${lat}, ${lon}`);
         
-        // Try with HTTPS first (more reliable)
-        const overpassUrl = "https://overpass-api.de/api/interpreter";
-        const query = `
-        [out:json][timeout:25];
-        (
-          node["amenity"="${facilityType}"](around:${radius},${lat},${lon});
-          way["amenity"="${facilityType}"](around:${radius},${lat},${lon});
-          relation["amenity"="${facilityType}"](around:${radius},${lat},${lon});
-        );
-        out body;
-        >;
-        out skel qt;
-        `;
+        const apiKey = process.env.Google_Map_API;
+        let placeType = facilityType === 'hospital' ? 'hospital' : 'pharmacy';
         
-        // Use post method instead of get with params
-        const response = await axios.post(overpassUrl, query, {
-            headers: {
-                'Content-Type': 'application/x-www-form-urlencoded'
-            },
-            timeout: 10000 // 10 second timeout
-        });
+        const url = `https://maps.googleapis.com/maps/api/place/nearbysearch/json?location=${lat},${lon}&radius=${radius}&type=${placeType}&key=${apiKey}`;
         
-        if (response.status === 200) {
-            const facilities = response.data.elements || [];
+        const response = await axios.get(url, { timeout: 10000 });
+        
+        if (response.status === 200 && response.data.results) {
+            const facilities = response.data.results.map(place => ({
+                id: place.place_id,
+                name: place.name,
+                lat: place.geometry.location.lat,
+                lng: place.geometry.location.lng,
+                rating: place.rating || 0,
+                address: place.vicinity,
+                open_now: place.opening_hours?.open_now,
+                photo_reference: place.photos?.[0]?.photo_reference,
+                types: place.types
+            }));
+            
             console.log(`Found ${facilities.length} ${facilityType} facilities`);
             return facilities;
         } else {
@@ -59,7 +54,6 @@ const getNearbyFacilities = async (lat, lon, facilityType, radius = 60000) => {
         }
     } catch (error) {
         console.error(`Error getting nearby ${facilityType}:`, error);
-        // Return mock data if the API request fails
         return getMockFacilities(facilityType, lat, lon);
     }
 };
@@ -106,11 +100,9 @@ const getCityCoordinates = (query) => {
 const getMockFacilities = (facilityType, lat, lon) => {
     console.log(`Generating mock ${facilityType} data`);
     
-    // Number of mock facilities to generate
-    const count = 8 + Math.floor(Math.random() * 7); // 8-14 facilities
+    const count = 8 + Math.floor(Math.random() * 7);
     const facilities = [];
     
-    // Facility name generators
     const hospitalNames = [
         'مستشفى القاهرة التخصصي', 'المستشفى الجامعي', 'مستشفى دار الفؤاد', 
         'مستشفى السلام الدولي', 'المستشفى العسكري', 'مستشفى النيل', 
@@ -125,25 +117,21 @@ const getMockFacilities = (facilityType, lat, lon) => {
         'صيدلية الأمين', 'صيدلية المستقبل'
     ];
     
-    // Select the appropriate name array based on facility type
     const nameArray = facilityType === 'hospital' ? hospitalNames : pharmacyNames;
     
-    // Generate the mock facilities
     for (let i = 0; i < count; i++) {
-        // Create random offset (within roughly 5km)
         const latOffset = (Math.random() - 0.5) * 0.05;
         const lonOffset = (Math.random() - 0.5) * 0.05;
         
         facilities.push({
             id: `mock-${facilityType}-${i}`,
-            type: 'node',
+            name: nameArray[i % nameArray.length],
             lat: parseFloat(lat) + latOffset,
-            lon: parseFloat(lon) + lonOffset,
-            tags: {
-                name: nameArray[i % nameArray.length],
-                amenity: facilityType,
-                'mock-data': 'true'
-            }
+            lng: parseFloat(lon) + lonOffset,
+            rating: 3.5 + Math.random() * 1.5,
+            address: 'العنوان غير متوفر',
+            open_now: Math.random() > 0.3,
+            types: [facilityType]
         });
     }
     
