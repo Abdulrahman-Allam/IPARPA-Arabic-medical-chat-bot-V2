@@ -387,10 +387,13 @@ const ChatMessage = ({ message, onBooking, userMessage = null }) => {
               dangerouslySetInnerHTML={{ __html: formatMessageContent }}
             />
           </BotMessagePaper>
-          
-          {/* Show booking button for assistant messages when user is authenticated and the message has content */}
-          {!isUser && isAuthenticated && message.content && message.content.trim() !== '' && (
-            <Tooltip title={detectedSpecialty ? `حجز موعد مع دكتور ${detectedSpecialty}` : "حجز موعد"}>
+            {/* Show booking button for assistant messages when the message has content */}
+          {!isUser && message.content && message.content.trim() !== '' && (
+            <Tooltip title={
+              isAuthenticated 
+                ? (detectedSpecialty ? `حجز موعد مع دكتور ${detectedSpecialty}` : "حجز موعد")
+                : "يجب تسجيل الدخول أولاً لحجز موعد"
+            }>
               <Button
                 variant="contained"
                 color="success"
@@ -410,7 +413,7 @@ const ChatMessage = ({ message, onBooking, userMessage = null }) => {
                   }
                 }}
               >
-                حجز
+                احجز
               </Button>
             </Tooltip>
           )}

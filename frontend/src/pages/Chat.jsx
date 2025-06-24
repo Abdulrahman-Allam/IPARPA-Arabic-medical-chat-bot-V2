@@ -316,35 +316,15 @@ const Chat = () => {
   const [speechSupported, setSpeechSupported] = useState(false);
   const [transcript, setTranscript] = useState('');
   const speechTimeoutRef = useRef(null);
-
   useEffect(() => {
     const initializeChat = async () => {
       try {
         setLoading(true);
-        // Check if we have a session in localStorage
-        const savedSessionId = localStorage.getItem('chatSessionId');
+        // Always start a new chat session when opening the chat page
+        console.log("Starting a new chat session");
+        await startNewSession();
         
-        if (savedSessionId) {
-          console.log("Found existing session:", savedSessionId);
-          setSessionId(savedSessionId);
-          try {
-            const response = await chatService.getChatHistory(savedSessionId);
-            if (response.success && response.messages) {
-              console.log("Loaded chat history:", response.messages);
-              setMessages(response.messages);
-              setShowWelcome(false);
-            }
-          } catch (historyError) {
-            console.error("Failed to load chat history:", historyError);
-            // If there's an error with the existing session, start a new one
-            startNewSession();
-          }
-        } else {
-          // Initialize a new chat session
-          startNewSession();
-        }
-        
-        // If user is authenticated, fetch their sessions
+        // If user is authenticated, fetch their sessions for history
         if (isAuthenticated) {
           fetchUserSessions();
         }
@@ -563,9 +543,20 @@ const Chat = () => {
       console.error('Failed to fetch user data:', error);
     }
   };
-
   const handleBooking = async (messageContent, specialty) => {
-    if (!isAuthenticated || !user) {
+    if (!isAuthenticated) {
+      // Show a message and redirect to login page for non-authenticated users
+      setSnackbarMessage('يجب تسجيل الدخول أولاً لحجز موعد');
+      setSnackbarOpen(true);
+      
+      // Redirect to login page after a short delay
+      setTimeout(() => {
+        navigate('/login');
+      }, 1500);
+      return;
+    }
+
+    if (!user) {
       navigate('/login');
       return;
     }
@@ -1065,8 +1056,7 @@ const Chat = () => {
         </Zoom>
           <Zoom in={initFinished} timeout={500} style={{ transitionDelay: '300ms' }}>
           <InputContainer component="form" onSubmit={handleSendMessage}>
-            {/* Speech Recognition Status */}
-            {(isListening || transcript) && (
+            {/* Speech Recognition Status */}            {(isListening || transcript) && (
               <Box sx={{ 
                 position: 'absolute', 
                 top: -60, 
@@ -1079,7 +1069,6 @@ const Chat = () => {
                 display: 'flex',
                 alignItems: 'center',
                 gap: 1,
-                animation: isListening ? `${pulse} 1.5s ease-in-out infinite` : 'none'
               }}>
                 <MicIcon sx={{ color: '#f44336', fontSize: 20 }} />
                 <Typography variant="body2" sx={{ flex: 1, color: theme.palette.text.primary }}>
@@ -1101,8 +1090,7 @@ const Chat = () => {
                 : isListening 
                   ? "اترك الزر لإيقاف التسجيل" 
                   : "اضغط واستمر بالضغط للتسجيل الصوتي"
-            }>
-              <IconButton 
+            }>              <IconButton 
                 color="primary"
                 disabled={!speechSupported || loading}
                 onMouseDown={handleMouseDown}
@@ -1133,7 +1121,6 @@ const Chat = () => {
                   '&:active': {
                     transform: 'scale(0.95)',
                   },
-                  animation: isListening ? `${pulse} 1s ease-in-out infinite` : 'none',
                   userSelect: 'none', // Prevent text selection
                   WebkitUserSelect: 'none',
                   msUserSelect: 'none',
@@ -1154,12 +1141,10 @@ const Chat = () => {
                   e.preventDefault();
                   handleSendMessage(e);
                 }
-              }}
-              InputProps={{                sx: { 
+              }}              InputProps={{                sx: { 
                   borderRadius: '12px',
                   backgroundColor: theme.palette.mode === 'dark' ? 'rgba(255,255,255,0.05)' : 'rgba(255,255,255,0.7)',
                   border: isListening ? `2px solid ${theme.palette.mode === 'dark' ? '#f44336' : '#f44336'}` : 'none',
-                  animation: isListening ? `${pulse} 2s ease-in-out infinite` : 'none'
                 }
               }}
             />
