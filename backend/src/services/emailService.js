@@ -42,7 +42,7 @@ if (SENDGRID_API_KEY) {
  * @param {string} options.from - Sender email (defaults to configured sender)
  * @returns {Promise<Object>} - Response from SendGrid or simulated response
  */
-const sendEmail = async ({ to, subject, text, html, from = 'IPARPA.team@hotmail.com' }) => {
+const sendEmail = async ({ to, subject, text, html, from = 'healsync@hotmail.com' }) => {
     // Validate required fields
     if (!to || !subject || (!text && !html)) {
         throw new Error('Email recipient, subject, and content are required');
