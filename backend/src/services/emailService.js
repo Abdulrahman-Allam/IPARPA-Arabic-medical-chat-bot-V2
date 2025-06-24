@@ -42,6 +42,7 @@ if (SENDGRID_API_KEY) {
  * @param {string} options.from - Sender email (defaults to configured sender)
  * @returns {Promise<Object>} - Response from SendGrid or simulated response
  */
+// make sure again
 const sendEmail = async ({ to, subject, text, html, from = 'healsync@hotmail.com' }) => {
     // Validate required fields
     if (!to || !subject || (!text && !html)) {
